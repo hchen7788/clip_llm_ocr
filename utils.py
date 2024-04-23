@@ -1,3 +1,10 @@
+import torch
+import clip
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model, preprocess = clip.load('RN50', device)
+model.to(device)
+
 @torch.no_grad()
 def evaluate(output, target, topk=(1,)):
     maxk = max(topk)
@@ -11,12 +18,41 @@ def evaluate(output, target, topk=(1,)):
     for k in topk:
         correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
         res.append(correct_k.mul_(100.0 / batch_size).item())
+
     return res
 
+@torch.no_grad()
+def evaluate_with_ranks(output, target, topk=(1,)):
+    # Number of classes could be determined from the size of the second dimension of output
+    num_classes = output.shape[1]
+    batch_size = target.size(0)
 
+    # Get the top 'num_classes' indices of the predictions (sorted by highest probability)
+    _, pred_full = output.topk(num_classes, 1, True, True)
+    pred_full = pred_full.t()
+
+    # Calculate the top 'maxk' accuracies as before
+    maxk = max(topk)
+    _, pred_topk = output.topk(maxk, 1, True, True)
+    pred_topk = pred_topk.t()
+    correct_topk = pred_topk.eq(target.view(1, -1).expand_as(pred_topk))
+
+    res = []
+    full_ranks = []
+    for i in range(batch_size):
+        # Finding the full rank of the correct class for each sample from the full predictions
+        full_rank = (pred_full[:, i] == target[i]).nonzero(as_tuple=True)[0] + 1
+        full_ranks.append(full_rank.item())
+
+    for k in topk:
+        # Calculate correct predictions within top k from the limited topk predictions
+        correct_k = correct_topk[:k].reshape(-1).float().sum(0, keepdim=True)
+        res.append(correct_k.mul_(100.0 / batch_size).item())
+
+    return res, full_ranks
 
 @torch.no_grad()
-def extract_text_features():
+def extract_text_features(labels, prompt_templates):
     model.to(device)
     model.eval()
 
