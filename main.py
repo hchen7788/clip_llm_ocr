@@ -67,20 +67,20 @@ text_features_llm_short = utils.extract_text_features_llm(labels, descriptions_s
 text_features_llm_long = utils.extract_text_features_llm(labels, descriptions_l)
 
 image_labels = torch.tensor(image_labels).unsqueeze(dim=1).to(device)
+clip_logits = (100. * image_features @ text_features_clip).softmax(dim=-1)
+llm_logits_short = (100. * image_features @ text_features_llm_short).softmax(dim=-1)
+llm_logits_long = (100. * image_features @ text_features_llm_long).softmax(dim=-1)
 # compute accuracy
 if "clip" in arguments:
-    clip_logits = (100. * image_features @ text_features_clip).softmax(dim=-1)
     clip_accuracies, clip_ranks = utils.evaluate_with_ranks(clip_logits, image_labels)
     print(f'top-1 accuracy for MNIST dataset: {clip_accuracies[0]:.3f}')
     utils.plot_ranks(clip_ranks, "CLIP")
 if "clip_llm_short" in arguments:
-    llm_logits = (100. * image_features @ text_features_llm_short).softmax(dim=-1)
-    llm_accuracies, llm_ranks = utils.evaluate_with_ranks(llm_logits, image_labels)
+    llm_accuracies, llm_ranks = utils.evaluate_with_ranks(llm_logits_short, image_labels)
     print(f'top-1 accuracy for MNIST dataset: {llm_accuracies[0]:.3f}')
     utils.plot_ranks(llm_ranks, "CLIP + GPT-3.5 (short prompts)")
 if "clip_llm_long" in arguments:
-    llm_logits = (100. * image_features @ text_features_llm_long).softmax(dim=-1)
-    llm_accuracies, llm_ranks = utils.evaluate_with_ranks(llm_logits, image_labels)
+    llm_accuracies, llm_ranks = utils.evaluate_with_ranks(llm_logits_long, image_labels)
     print(f'top-1 accuracy for MNIST dataset: {llm_accuracies[0]:.3f}')
     utils.plot_ranks(llm_ranks, "CLIP + GPT-3.5 (long prompts)")
 
@@ -137,14 +137,15 @@ if "clip_ocr" in arguments:
     utils.plot_ranks(clip_ocr_ranks, "CLIP + OCR")
 
 # CLIP + LLM (short) + OCR
-clip_llm_ocr_logits = llm_logits.to(device) + probabilities.to(device)
-clip_llm_ocr_accuracies, clip_llm_ocr_ranks = utils.evaluate_with_ranks(clip_llm_ocr_logits, image_labels)
-
 if "clip_llm_short_ocr" in arguments:
+    clip_llm_ocr_logits = llm_logits_short.to(device) + probabilities.to(device)
+    clip_llm_ocr_accuracies, clip_llm_ocr_ranks = utils.evaluate_with_ranks(clip_llm_ocr_logits, image_labels)
     print(f'top-1 accuracy for MNIST dataset: {clip_ocr_accuracies[0]:.3f}')
     utils.plot_ranks(clip_llm_ocr_ranks, "CLIP + GPT-3.5 (short) + OCR")
 
 # CLIP + LLM (long) + OCR
 if "clip_llm_long_ocr" in arguments:
+    clip_llm_ocr_logits = llm_logits_long.to(device) + probabilities.to(device)
+    clip_llm_ocr_accuracies, clip_llm_ocr_ranks = utils.evaluate_with_ranks(clip_llm_ocr_logits, image_labels)
     print(f'top-1 accuracy for MNIST dataset: {clip_ocr_accuracies[0]:.3f}')
     utils.plot_ranks(clip_llm_ocr_ranks, "CLIP + GPT-3.5 (long) + OCR")
