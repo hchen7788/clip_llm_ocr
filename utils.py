@@ -92,3 +92,21 @@ def extract_text_features(labels, prompt_templates):
         zeroshot_weights.append(class_embedding)
     zeroshot_weights = torch.stack(zeroshot_weights, dim=1).to(device)
     return zeroshot_weights
+
+@torch.no_grad()
+def extract_text_features_llm(labels, descriptions):
+    model.to(device)
+    model.eval()
+
+    zeroshot_weights = []
+    for label in labels:
+        texts = [descriptions[label]]
+        print(texts)
+        texts = clip.tokenize(texts).to(device)
+        class_embeddings = model.encode_text(texts)
+        class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
+        class_embedding = class_embeddings.mean(dim=0)
+        class_embedding /= class_embedding.norm()
+        zeroshot_weights.append(class_embedding)
+    zeroshot_weights = torch.stack(zeroshot_weights, dim=1).to(device)
+    return zeroshot_weights
