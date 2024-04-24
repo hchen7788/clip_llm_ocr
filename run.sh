@@ -1,1 +1,3 @@
-python3 main.py
+echo $@
+
+python3 main.py $@

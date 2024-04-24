@@ -1,9 +1,33 @@
 import torch
 import clip
+import matplotlib.pyplot as plt
+import numpy as np
+from collections import Counter
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model, preprocess = clip.load('RN50', device)
 model.to(device)
+
+def plot_ranks(ranks, model):
+  counter = Counter(ranks)
+
+  numbers = list(counter.keys())
+  frequencies = list(counter.values())
+  total = sum(counter.values())
+  percentages = [f"{(count / total) * 100:.2f}%" for count in frequencies]
+
+  plt.figure(figsize=(10, 5))  # Optional: specifies the figure size
+  bars = plt.bar(numbers, frequencies)  # Creates a bar chart
+  plt.xlabel('Distribution')  # Label for the x-axis
+  plt.ylabel('Frequency')  # Label for the y-axis
+  plt.title("Prediction Frequency Distribution of " + model)
+  plt.xticks(numbers)
+
+  for bar, percentage in zip(bars, percentages):
+      yval = bar.get_height()
+      plt.text(bar.get_x() + bar.get_width()/2, yval, percentage, va='bottom')
+
+  plt.show()
 
 @torch.no_grad()
 def evaluate(output, target, topk=(1,)):

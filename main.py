@@ -6,6 +6,10 @@ from torchvision.datasets import MNIST
 import numpy as np
 from tqdm import tqdm
 import utils
+import sys
+
+arguments = sys.argv[1:]
+print(arguments)
 
 labels = ['0','1','2','3','4','5','6','7','8','9',]
 prompt_templates = ['a photo of the number: "{}".',]
@@ -35,3 +39,4 @@ clip_logits = (100. * image_features @ text_features).softmax(dim=-1)
 clip_image_labels = torch.tensor(image_labels).unsqueeze(dim=1).to(device)
 clip_accuracies, clip_ranks = utils.evaluate_with_ranks(clip_logits, clip_image_labels)
 print(f'top-1 accuracy for MNIST dataset: {clip_accuracies[0]:.3f}')
+utils.plot_ranks(clip_ranks, "CLIP")
