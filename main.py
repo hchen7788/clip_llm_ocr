@@ -1,12 +1,19 @@
 from transformers import CLIPProcessor, CLIPModel
+from torchvision.transforms import ToPILImage
 import torch
 import clip
 import os
 from torchvision.datasets import MNIST
 import numpy as np
 from tqdm import tqdm
-import utils
 import sys
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+import torchvision.transforms as transforms
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+from PIL import Image
+import utils
+
 
 arguments = sys.argv[1:]
 print("evaluating the following architectures:", arguments)
@@ -76,3 +83,63 @@ if "clip_llm_long" in arguments:
     llm_accuracies, llm_ranks = utils.evaluate_with_ranks(llm_logits, image_labels)
     print(f'top-1 accuracy for MNIST dataset: {llm_accuracies[0]:.3f}')
     utils.plot_ranks(llm_ranks, "CLIP + GPT-3.5 (long prompts)")
+
+# OCR
+processor = TrOCRProcessor.from_pretrained("microsoft/trocr-large-handwritten")
+model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-large-handwritten").to(device)
+
+# load MNIST dataset
+transform = transforms.Compose([
+    transforms.Resize((28, 28)),
+    transforms.Grayscale(3),
+    transforms.ToTensor()
+])
+
+mnist_dataset = MNIST(root='./data', train=False, transform=transform, download=True)
+#images = mnist_dataset.data.numpy()
+
+pred = []
+for image in tqdm(mnist_dataset):
+    image_np = image[0].permute(1, 2, 0).numpy()
+    image_pil = Image.fromarray((image_np * 255).astype(np.uint8))
+
+    pixel_values = processor(image_pil, return_tensors="pt").pixel_values
+    generated_ids = model.generate(pixel_values.to(device))
+    generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+
+    pred.append(generated_text[0])
+
+    sentence_bert_model = SentenceTransformer('sentence-transformers/bert-base-nli-mean-tokens')
+
+labels = [str(i) for i in range(10)]
+ocr_embeddings = sentence_bert_model.encode(pred)
+true_label_embeddings = sentence_bert_model.encode(labels)
+
+similarities = cosine_similarity(ocr_embeddings, true_label_embeddings)
+
+probabilities = torch.softmax(torch.tensor(similarities), dim=1)
+
+preds = probabilities.argmax(dim = 1)
+true_labels = np.array([image[1] for image in mnist_dataset])
+(np.array(preds) == true_labels).mean()
+
+ # OCR alone (llm_image_labels is from )
+ocr_accuracies, ocr_ranks = utils.evaluate_with_ranks(probabilities.to(device), labels)
+
+utils.plot_ranks(ocr_ranks, "OCR")
+
+# CLIP + OCR
+clip_ocr_logits = clip_logits.to(device) + probabilities.to(device)
+clip_ocr_accuracies, clip_ocr_ranks = utils.evaluate_with_ranks(clip_ocr_logits, image_labels)
+
+if "clip_ocr" in arguments:
+    print(f'top-1 accuracy for MNIST dataset: {clip_ocr_accuracies[0]:.3f}')
+    utils.plot_ranks(clip_ocr_ranks, "CLIP + OCR")
+
+# CLIP + LLM (short) + OCR
+if "clip_llm_short_ocr" in arguments:
+    pass
+
+# CLIP + LLM (long) + OCR
+if "clip_llm_long_ocr" in arguments:
+    pass
