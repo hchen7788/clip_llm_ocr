@@ -137,9 +137,14 @@ if "clip_ocr" in arguments:
     utils.plot_ranks(clip_ocr_ranks, "CLIP + OCR")
 
 # CLIP + LLM (short) + OCR
+clip_llm_ocr_logits = llm_logits.to(device) + probabilities.to(device)
+clip_llm_ocr_accuracies, clip_llm_ocr_ranks = utils.evaluate_with_ranks(clip_llm_ocr_logits, image_labels)
+
 if "clip_llm_short_ocr" in arguments:
-    pass
+    print(f'top-1 accuracy for MNIST dataset: {clip_ocr_accuracies[0]:.3f}')
+    utils.plot_ranks(clip_llm_ocr_ranks, "CLIP + GPT-3.5 (short) + OCR")
 
 # CLIP + LLM (long) + OCR
 if "clip_llm_long_ocr" in arguments:
-    pass
+    print(f'top-1 accuracy for MNIST dataset: {clip_ocr_accuracies[0]:.3f}')
+    utils.plot_ranks(clip_llm_ocr_ranks, "CLIP + GPT-3.5 (long) + OCR")
